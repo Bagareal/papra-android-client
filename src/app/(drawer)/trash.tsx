@@ -59,18 +59,17 @@ export default function TrashScreen() {
 
   useOnReconnect(load);
 
-  const act = useCallback(
-    async (action: () => Promise<void>) => {
-      try {
-        await action();
-        await load();
-        syncMetadata().catch(() => {});
-      } catch (e) {
-        Alert.alert("Failed", e instanceof Error ? e.message : String(e));
-      }
-    },
-    [load],
-  );
+  // The row leaves as soon as the server confirms; the trash list is not
+  // re-read (it can lag behind the action). No id = the whole list is gone.
+  const act = useCallback(async (action: () => Promise<void>, removedId?: string) => {
+    try {
+      await action();
+      setDocs((prev) => (removedId ? prev.filter((d) => d.id !== removedId) : []));
+      syncMetadata().catch(() => {});
+    } catch (e) {
+      Alert.alert("Failed", e instanceof Error ? e.message : String(e));
+    }
+  }, []);
 
   const confirmEmpty = () =>
     Alert.alert(
@@ -88,7 +87,7 @@ export default function TrashScreen() {
       `${doc.name}\n\nThis is permanent and cannot be undone. Documents otherwise auto-delete after ${retentionDays} days.`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => act(() => deleteDocumentForever(doc.id)) },
+        { text: "Delete", style: "destructive", onPress: () => act(() => deleteDocumentForever(doc.id), doc.id) },
       ],
     );
 
@@ -123,7 +122,7 @@ export default function TrashScreen() {
             </Text>
             <Row>
               <View style={{ flex: 1 }}>
-                <Button label="Restore" kind="ghost" onPress={() => act(() => restoreDocument(item.id))} />
+                <Button label="Restore" kind="ghost" onPress={() => act(() => restoreDocument(item.id), item.id)} />
               </View>
               <View style={{ flex: 1 }}>
                 <Button label="Delete forever" kind="danger" onPress={() => confirmDeleteForever(item)} />

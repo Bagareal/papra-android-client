@@ -2,7 +2,7 @@
  * Home: quick actions, organization statistics (server, cached numbers as
  * fallback offline) and the 20 most recent documents from the local mirror.
  */
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, InteractionManager, Pressable, RefreshControl, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,6 +29,7 @@ export default function HomeScreen() {
 
   // --- search modal: instant local hits, debounced server search on top ---
   const [searchOpen, setSearchOpen] = useState(false);
+  const isFocused = useIsFocused();
   const [q, setQ] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<CachedDocument[]>([]);
@@ -36,8 +37,7 @@ export default function HomeScreen() {
   // Guards against a slow server response landing after a newer keystroke.
   const searchRun = useRef(0);
 
-  const onQueryChange = useCallback((t: string) => {
-    setQ(t);
+  const runSearch = useCallback(async (t: string) => {
     const run = ++searchRun.current;
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
     if (!t.trim()) {
@@ -45,31 +45,46 @@ export default function HomeScreen() {
       setResults([]);
       return;
     }
-    // Nothing runs until 350ms after the last keystroke; the loader shows
-    // from the keystroke until the search settles.
     setSearching(true);
-    searchDebounce.current = setTimeout(async () => {
-      setResults(listCachedDocuments(t, 25, 0)); // instant local hits first
-      try {
-        const { documents } = await listDocuments({
-          searchQuery: t.trim(),
-          pageIndex: 0,
-          pageSize: 25,
-          sortField: "createdAt",
-          sortOrder: "desc",
-        });
-        if (run !== searchRun.current) return;
-        upsertDocuments(documents);
-        // Re-read through the cache so rows carry offline state.
-        const found = documents.map((d) => getCachedDocument(d.id)).filter((d): d is CachedDocument => d !== null);
-        setResults(found);
-      } catch {
-        /* offline - the local hits stay */
-      } finally {
-        if (run === searchRun.current) setSearching(false);
-      }
-    }, 350);
+    setResults(listCachedDocuments(t, 25, 0)); // instant local hits first
+    try {
+      const { documents } = await listDocuments({
+        searchQuery: t.trim(),
+        pageIndex: 0,
+        pageSize: 25,
+        sortField: "createdAt",
+        sortOrder: "desc",
+      });
+      if (run !== searchRun.current) return;
+      upsertDocuments(documents);
+      // Re-read through the cache so rows carry offline state.
+      const found = documents.map((d) => getCachedDocument(d.id)).filter((d): d is CachedDocument => d !== null);
+      setResults(found);
+    } catch {
+      /* offline - the local hits stay */
+    } finally {
+      if (run === searchRun.current) setSearching(false);
+    }
   }, []);
+
+  // Nothing runs until 350ms after the last keystroke; the loader shows from
+  // the keystroke until the search settles. The keyboard's search key skips
+  // the wait (runSearch directly).
+  const onQueryChange = useCallback(
+    (t: string) => {
+      setQ(t);
+      searchRun.current++;
+      if (searchDebounce.current) clearTimeout(searchDebounce.current);
+      if (!t.trim()) {
+        setSearching(false);
+        setResults([]);
+        return;
+      }
+      setSearching(true);
+      searchDebounce.current = setTimeout(() => runSearch(t), 350);
+    },
+    [runSearch],
+  );
 
   useEffect(() => () => {
     if (searchDebounce.current) clearTimeout(searchDebounce.current);
@@ -206,7 +221,9 @@ export default function HomeScreen() {
     />
     <Portal>
       <Modal
-        visible={searchOpen}
+        // Hidden, not closed, while a document is open on top: coming back
+        // restores the query and its results.
+        visible={searchOpen && isFocused}
         onDismiss={closeSearch}
         // Full screen: the centered sheet resized with every keystroke and
         // keyboard bounce; a fixed surface has no layout shift.
@@ -225,6 +242,8 @@ export default function HomeScreen() {
               value={q}
               onChangeText={onQueryChange}
               autoFocus
+              returnKeyType="search"
+              onSubmitEditing={() => runSearch(q)}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -249,10 +268,7 @@ export default function HomeScreen() {
           renderItem={({ item }) => (
             <DocumentRow
               doc={item}
-              onPress={() => {
-                closeSearch();
-                router.push(`/document/${item.id}`);
-              }}
+              onPress={() => router.push(`/document/${item.id}`)}
             />
           )}
         />

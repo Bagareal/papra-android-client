@@ -59,7 +59,14 @@ export default function DocumentsScreen() {
   // The FAB lives in a Portal and drawer screens stay mounted, so without
   // this it would float over every other page too.
   const isFocused = useIsFocused();
-  const [search, setSearch] = useState("");
+  // Search and filters live in the route params: coming back from a document
+  // (or arriving from a tag tap) restores them, like a query string on the web.
+  const params = useLocalSearchParams<{ q?: string; unsynced?: string; sort?: string }>();
+  const [search, setSearch] = useState(params.q ?? "");
+  const searchRef = useRef("");
+  searchRef.current = search;
+  // "Refresh this list" depends on the search mode; assigned once that code exists.
+  const reloadRef = useRef<() => void>(() => {});
   const [docs, setDocs] = useState<CachedDocument[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [ready, setReady] = useState(false);
@@ -68,8 +75,8 @@ export default function DocumentsScreen() {
   const PAGE = 30;
   const [total, setTotal] = useState(0);
   // Filter: only documents whose blob is not on the phone yet (local-only view).
-  const [notSynced, setNotSynced] = useState(false);
-  const [sortIndex, setSortIndex] = useState(0);
+  const notSynced = params.unsynced === "1";
+  const sortIndex = Number(params.sort) || 0;
   const [sortMenu, setSortMenu] = useState(false);
 
   const loadLocal = useCallback(
@@ -83,7 +90,7 @@ export default function DocumentsScreen() {
   const applySort = useCallback(
     (i: number) => {
       setSortMenu(false);
-      setSortIndex(i);
+      router.setParams({ sort: String(i) });
       setServerMode(false);
       loadLocal(search, notSynced, SORTS[i]);
     },
@@ -103,7 +110,7 @@ export default function DocumentsScreen() {
           return;
         }
         setReady(true);
-        loadLocal(search);
+        reloadRef.current();
         listDocumentViews()
           .then((v) => active && setViews(v))
           .catch(() => {});
@@ -181,6 +188,7 @@ export default function DocumentsScreen() {
   const onSearchChange = useCallback(
     (t: string) => {
       setSearch(t);
+      router.setParams({ q: t });
       setServerMode(false);
       loadLocal(t); // instant local hits while the server round-trip runs
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -194,14 +202,25 @@ export default function DocumentsScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
 
-  // Arriving with ?q= (a tag tapped on a document page) seeds the search box.
-  const qParam = useLocalSearchParams<{ q?: string }>().q;
+  // Params changed from outside (a tag tapped on a document page): adopt them.
+  // Our own edits write the same value back, so this only fires for arrivals.
   useEffect(() => {
-    if (qParam) {
-      onSearchChange(qParam);
-      router.setParams({ q: "" }); // consume it, back-nav must not re-apply
-    }
-  }, [qParam, onSearchChange]);
+    const q = params.q ?? "";
+    if (q !== searchRef.current) onSearchChange(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.q]);
+
+  reloadRef.current = () => {
+    // Coming back to server results must not swap them for local name matches.
+    if (serverMode && search.trim()) runServerSearch(search.trim());
+    else loadLocal(search);
+  };
+
+  // Keyboard "search" key: run now instead of waiting for the typing pause.
+  const submitSearch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (search.trim() && !notSynced) runServerSearch(search.trim());
+  }, [search, notSynced, runServerSearch]);
 
   const loadMore = useCallback(() => {
     if (serverMode) {
@@ -589,6 +608,8 @@ export default function DocumentsScreen() {
           onChangeText={onSearchChange}
           autoCapitalize="none"
           autoCorrect={false}
+          returnKeyType="search"
+          onSubmitEditing={submitSearch}
           traileringIcon={search.trim() ? "bookmark-plus-outline" : undefined}
           onTraileringIconPress={() => setViewName("")}
         />
@@ -618,7 +639,7 @@ export default function DocumentsScreen() {
               mode={notSynced ? "flat" : "outlined"}
               onPress={() => {
                 const next = !notSynced;
-                setNotSynced(next);
+                router.setParams({ unsynced: next ? "1" : "" });
                 setServerMode(false);
                 loadLocal(search, next);
               }}
@@ -658,7 +679,7 @@ export default function DocumentsScreen() {
                 mode="outlined"
                 icon="close"
                 onPress={() => {
-                  setNotSynced(false);
+                  router.setParams({ q: "", unsynced: "" });
                   setServerMode(false);
                   setSearch("");
                   loadLocal("", false);

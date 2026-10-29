@@ -28,8 +28,6 @@ export interface Settings {
    * is left mid-sync (Android requires a visible notification for that).
    */
   notifySyncProgress: boolean;
-  /** opt-in GitHub release check on start; off by default (Obtainium/store users) */
-  updateCheckEnabled: boolean;
   /** how dates render across the app; "system" follows the phone's locale */
   dateFormat: DateFormat;
 }
@@ -72,7 +70,6 @@ export const DEFAULTS: Settings = {
   offlineExportDirUri: "",
   trashRetentionDays: 30,
   notifySyncProgress: false,
-  updateCheckEnabled: false,
   dateFormat: "system",
 };
 

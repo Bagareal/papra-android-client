@@ -19,7 +19,6 @@ import { getSettings } from "~/lib/settings";
 import { flushUploads, isFlushing } from "~/lib/uploads";
 // Side effect: defines the background sync task at module scope.
 import { isSyncing, signOutEverything } from "~/lib/sync";
-import { maybePromptUpdate } from "~/lib/version";
 
 export default function RootLayout() {
   const appTheme = useAppTheme();
@@ -32,14 +31,6 @@ export default function RootLayout() {
       promptMessage: "Unlock Papra",
     });
     if (result.success) setLocked(false);
-  }, []);
-
-  // Once per new version: offer the newer GitHub release. Opt-in (Settings ->
-  // Update check), so Obtainium/store users never see the nag.
-  useEffect(() => {
-    getSettings().then((s) => {
-      if (s.updateCheckEnabled) maybePromptUpdate();
-    });
   }, []);
 
   // Long-press the launcher icon: Scan / Upload / Search.

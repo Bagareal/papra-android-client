@@ -4,6 +4,13 @@ An unofficial Android client for [Papra](https://github.com/papra-hq/papra), the
 document archiving platform. Point it at your own server, browse and upload documents, and keep a
 full offline copy on your phone. Not affiliated with the Papra project.
 
+> **About this fork.** This is a personal fork of
+> [jtylab-sh/papra-android-client](https://github.com/jtylab-sh/papra-android-client), reviewed
+> before use. Changes from upstream: the in-app updater and the `REQUEST_INSTALL_PACKAGES`
+> permission are removed (the app only talks to your Papra server), the app is named
+> `Papra Client` with application id `io.github.bagareal.papraclient`, and releases are built only
+> from pushed `v*` tags. Not affiliated with the Papra project or the upstream author.
+
 > 🤖 This app is AI-generated: designed, written and released by
 > [Claude](https://claude.com/claude-code) (Anthropic) under human direction, including this README.
 
@@ -52,14 +59,12 @@ full offline copy on your phone. Not affiliated with the Papra project.
   and the session is stored per server and fully removed on sign-out. App settings survive
   sign-out; documents do not.
 - Configurable date format (system, DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD).
-- Optional update check (off by default) that downloads new releases and opens the installer
-  directly.
 
 ## Install
 
-Grab the APK from the [latest release](../../releases/latest), or add the repo to
-[Obtainium](https://github.com/ImranR98/Obtainium) for updates. The APK is built for arm64
-(64-bit) devices, which covers any Android phone from roughly 2016 on.
+Grab the APK from the [latest release](../../releases/latest) of this fork. The APK is built for arm64
+(64-bit) devices, which covers any Android phone from roughly 2016 on. The app has no
+self-update: to update, install the newer APK over the old one (same signing key).
 
 ## Privacy
 
@@ -68,9 +73,6 @@ Grab the APK from the [latest release](../../releases/latest), or add the repo t
 - The document scanner uses Google's ML Kit via Play services; the first scan may download the
   scanner module from Google. Scanning itself runs on-device.
 - Notifications are generated locally on the phone, no push service involved.
-- If you enable the update check in Settings (off by default), the app asks this repo's GitHub
-  releases for a newer version on start: a plain unauthenticated GET, nothing sent beyond the
-  request itself.
 
 ## Server requirements
 
@@ -96,9 +98,9 @@ Imports use the `~` alias for `src/` (tsconfig paths, resolved by Metro).
 
 ## Release flow
 
-Push to `main` and CI type-checks, computes a version from conventional-commit messages since the
-last tag (`feat:` = minor, `fix:`/anything else = patch, `!`/`BREAKING CHANGE` = major), builds and
-signs the APK, and only on success creates the GitHub release with the APK attached.
+Pushes to `main` only type-check. Push a tag like `v1.0.0` and CI type-checks, builds and signs the
+APK, and only on success creates the GitHub release with the APK attached (version taken from the
+tag, notes from conventional-commit messages since the previous tag).
 
 Repository secrets required for signing: `KEYSTORE_B64` (base64 of the keystore),
 `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. The keystore must never change once published,

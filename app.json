@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Papra",
+    "name": "Papra Client",
     "slug": "papra-android-client",
     "version": "0.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0d1512",
     "android": {
-      "package": "sh.jtylab.papra",
+      "package": "io.github.bagareal.papraclient",
       "adaptiveIcon": {
         "backgroundColor": "#10b981",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -109,7 +109,7 @@
       "reactCompiler": true
     },
     "ios": {
-      "bundleIdentifier": "sh.jtylab.papra"
+      "bundleIdentifier": "io.github.bagareal.papraclient"
     }
   }
 }

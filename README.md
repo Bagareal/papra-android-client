@@ -68,11 +68,22 @@ self-update: to update, install the newer APK over the old one (same signing key
 
 ## Privacy
 
-- All network traffic goes to the server URL you configure, nothing else. No analytics, tracking,
-  crash reporting or telemetry of any kind.
-- The document scanner uses Google's ML Kit via Play services; the first scan may download the
-  scanner module from Google. Scanning itself runs on-device.
-- Notifications are generated locally on the phone, no push service involved.
+The upstream project states that the app sends nothing but requests to your Papra server. This fork
+does not take that on trust. What was checked on release v1.0.0:
+
+- Measured on a phone with PCAPdroid, filtered to this app only, during sign-in, a document scan,
+  an upload and one hour with the app open: the app contacted only the configured Papra server
+  (HTTPS, plus the DNS lookup of its host name). No other host appeared.
+- The self-update feature of upstream is removed, so the app never contacts GitHub.
+- The APK still bundles Firebase Messaging and ML Kit libraries pulled in by its dependencies. No
+  Firebase project configuration (`google_app_id`) was found in the resources, and no Firebase
+  traffic was observed, but this was not verified beyond the capture above.
+- The document scanner is Google's ML Kit running inside Google Play services, so its network
+  activity belongs to Play services and was not part of the capture. The first scan may download
+  the scanner module from Google. Scanning itself runs on-device. The scanner does not work on
+  phones without Google Play services.
+- Notifications are generated locally on the phone, no push service is used.
+- The capture is a sample, not a proof. To check it yourself, run PCAPdroid on this app and compare.
 
 ## Server requirements
 
